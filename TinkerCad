@@ -1,0 +1,60 @@
+// =====================================================================
+// Tinkercad version: TMP36 analog sensors + two 16x2 LCDs
+// Mirrors the structure of the original DS18B20 sketch, but reads
+// analog voltages instead of using the OneWire/DallasTemperature libraries.
+// =====================================================================
+
+#include <LiquidCrystal.h>   // Library that drives the 16x2 LCDs (HD44780 controller) in 4-bit mode
+
+// ---- LCD PIN MAPPING (SHARED BUS) ----
+// LiquidCrystal(RS, E, D4, D5, D6, D7)
+// Both LCDs share RS and the four data lines; only the Enable (E) pin differs.
+// Only the LCD whose E pin is pulsed will accept the data, so each can be addressed separately.
+LiquidCrystal lcdTank(12, 11, 5, 4, 3, 2);  // Tank LCD: RS=pin 12, E=pin 11, D4=5, D5=4, D6=3, D7=2
+LiquidCrystal lcdHEX (12, 10, 5, 4, 3, 2);  // HEX LCD: same RS and data pins, but E=pin 10
+
+// ---- TMP36 READING FUNCTION ----
+// Takes an analog pin number (A0, A1, A2) and returns the temperature in degrees C.
+// This function does the same job as DallasTemperature does in the original code.
+float readTempC(int pin) {
+  float volts = analogRead(pin) * 5.0 / 1024.0;  // analogRead returns 0-1023; scale to 0-5 V (5 V reference, 1024 steps)
+  return (volts - 0.5) * 100.0;                  // TMP36 outputs 0.5 V at 0 C and 10 mV per C, so subtract the offset and multiply by 100
+}
+
+void setup() {   // setup() runs once when the simulation starts
+  Serial.begin(9600);  // Start serial communication at 9600 baud so data shows in the Serial Monitor
+
+  // ---- CSV HEADER ----
+  Serial.println("Tank_Temp(C),HEX_In(C),HEX_Out(C)");  // Print the column names as the first line, then a newline
+
+  lcdTank.begin(16, 2);  // Initialize the tank LCD as 16 columns x 2 rows
+  lcdHEX.begin(16, 2);   // Initialize the HEX LCD as 16 columns x 2 rows
+
+  // ---- STATIC LABELS (printed once, not redrawn each loop) ----
+  lcdTank.print("TANK TEMPERATURE");              // Title on row 0 of the tank LCD (cursor starts at column 0, row 0)
+  lcdHEX.setCursor(0, 0); lcdHEX.print("HEX_IN: ");   // Move to column 0, row 0 of the HEX LCD, print the inlet label (8 characters)
+  lcdHEX.setCursor(0, 1); lcdHEX.print("HEX_OUT: ");  // Move to column 0, row 1, print the outlet label (9 characters)
+}
+
+void loop() {   // loop() runs over and over after setup() finishes
+  float T_tank = readTempC(A0);  // Read the tank sensor wired to analog pin A0
+  float T_in   = readTempC(A1);  // Read the HEX inlet sensor wired to A1
+  float T_out  = readTempC(A2);  // Read the HEX outlet sensor wired to A2
+
+  // ---- TANK LCD ----
+  lcdTank.setCursor(0, 1);                       // Move to column 0 of the second row (the title stays on row 0)
+  lcdTank.print(T_tank, 1); lcdTank.print(" C   ");  // Print the temperature to 1 decimal place, then the unit and extra spaces that erase leftover digits from a longer previous value
+
+  // ---- HEX LCD ----
+  lcdHEX.setCursor(8, 0);                        // Column 8, row 0: right after "HEX_IN: "
+  lcdHEX.print(T_in, 1);  lcdHEX.print(" C ");   // Print inlet temperature, unit, and a space to clear old characters
+  lcdHEX.setCursor(9, 1);                        // Column 9, row 1: right after "HEX_OUT: "
+  lcdHEX.print(T_out, 1); lcdHEX.print(" C ");   // Print outlet temperature, unit, and a space to clear old characters
+
+  // ---- SERIAL CSV LOGGING ----
+  Serial.print(T_tank); Serial.print(",");  // Print the tank value followed by a comma (column separator)
+  Serial.print(T_in);   Serial.print(",");  // Print the inlet value followed by a comma
+  Serial.println(T_out);                    // Print the outlet value and start a new line (new CSV row)
+
+  delay(1000);  // Wait 1 second before the next reading (1-second sampling interval, same as the original)
+}
