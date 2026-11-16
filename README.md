@@ -1,5 +1,6 @@
 # MAAE4907K
-Arduino Uno// =====================================================================
+Arduino Uno
+// =====================================================================
 // CSP Temperature Monitor
 // Reads 3x DS18B20 sensors (tank, HEX inlet, HEX outlet), shows them on
 // two 16x2 LCDs, logs CSV over serial, and drives a bypass valve relay.
